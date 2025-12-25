@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-var errVal string = "Not correct card number"
-
 type Bank struct {
 	Name    string
 	BinFrom int
@@ -31,7 +29,7 @@ func loadBankData(path string) ([]Bank, error) {
 		line := scanner.Text()
 		words := strings.Split(line, ",")
 		if len(words) != 3 {
-			return nil, fmt.Errorf("expected 3 words, got %d", len(words))
+			return nil, fmt.Errorf("Ожидалось 3 слова, по факту: %d", len(words))
 		}
 
 		name := strings.TrimSpace(words[0])
@@ -54,6 +52,9 @@ func loadBankData(path string) ([]Bank, error) {
 }
 
 func extractBIN(cardNumber string) int {
+	if len(cardNumber) < 6 {
+		return 0
+	}
 	num, err := strconv.Atoi(cardNumber[:6])
 	if err != nil {
 		return 0
@@ -104,14 +105,13 @@ func validateLuhn(cardNumber string) bool {
 }
 
 func getUserInput() string {
-	fmt.Println("Enter your card number: ")
-
 	in := bufio.NewReader(os.Stdin)
 	line, err := in.ReadString('\n')
 	if err != nil {
-		if err == io.EOF && strings.TrimSpace(line) == "" {
-			return ""
+		if err != io.EOF {
+			fmt.Println("Ошибка ввода:", err)
 		}
+		return ""
 	}
 
 	return strings.TrimSpace(line)
@@ -136,33 +136,41 @@ func main() {
 
 	banks, err := loadBankData("banks.txt")
 	if err != nil {
-		fmt.Println("Ошибка: ", err)
+		fmt.Println("Ошибка чтения данных о банках:", err)
+		return
 	}
 
 	for {
+		fmt.Println("Введите номер карты: ")
+
 		cardNumber := getUserInput()
 		if cardNumber == "" {
+			fmt.Println("Завершение программы")
 			break
 		}
 
 		if !validateInput(cardNumber) {
-			fmt.Println(errVal)
+			fmt.Println("Некорректный формат: допускаются только цифры, длина 13-19")
 			continue
 		}
 
 		if !validateLuhn(cardNumber) {
-			fmt.Println(errVal)
+			fmt.Println("Номер карты не проходит проверку контрольной суммы")
 			continue
 		}
 
 		fmt.Println("Номер карты валиден")
 
 		six := extractBIN(cardNumber)
+		if six == 0 {
+			fmt.Println("Не получилось взять первые шесть цифр для идентификации банка, попробуйте ещё раз")
+			continue
+		}
 
 		bank := identifyBank(six, banks)
 
 		if bank != "Неизвестный банк" {
-			fmt.Println("Банк: {", bank, "}")
+			fmt.Printf("Банк: {%s}\n", bank)
 		} else {
 			fmt.Println("Эмитент не определен")
 		}
